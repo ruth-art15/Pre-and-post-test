@@ -84,8 +84,27 @@ function showTab(role,tab){
 }
 function renderStudent(){
  const el=document.getElementById('student-take');
- el.innerHTML=`<h2>${esc(db.assessment.title)}</h2><p class="small">Answer all questions. Objective questions are marked automatically. Written answers are marked by the teacher.</p>
- <label>Student Name</label><input id="studentName" placeholder="Enter your full name">
+ el.innerHTML=`<h2>${esc(db.assessment.title)}</h2><p class="small">Use your secret number as your identifier. Objective questions are marked automatically. Written answers are marked by the teacher.</p>
+ <label>Test Type</label>
+ <select id="testType">
+   <option value="">Select test type</option>
+   <option value="Pre-test">Pre-test</option>
+   <option value="Post-test">Post-test</option>
+ </select>
+ <label>Secret Number</label>
+ <input id="secretNumber" placeholder="Enter your secret number" autocomplete="off">
+ <label>Gender</label>
+ <select id="gender">
+   <option value="">Select gender</option>
+   <option value="Male">Male</option>
+   <option value="Female">Female</option>
+ </select>
+ <label>School</label>
+ <select id="school">
+   <option value="">Select school</option>
+   <option value="Kayangi SS">Kayangi SS</option>
+   <option value="Kyangwali SS">Kyangwali SS</option>
+ </select>
  <div id="studentQuestions"></div><button onclick="submitAssessment()">Submit Assessment</button>`;
  const q=document.getElementById('studentQuestions');
  db.questions.forEach((x,i)=>{
@@ -96,20 +115,26 @@ function renderStudent(){
  });
 }
 function submitAssessment(){
- const name=document.getElementById('studentName').value.trim();
- if(!name)return alert('Please enter the student name.');
+ const testType=document.getElementById('testType').value;
+ const secretNumber=document.getElementById('secretNumber').value.trim();
+ const gender=document.getElementById('gender').value;
+ const school=document.getElementById('school').value;
+ if(!testType)return alert('Please select Pre-test or Post-test.');
+ if(!secretNumber)return alert('Please enter your secret number.');
+ if(!gender)return alert('Please select your gender.');
+ if(!school)return alert('Please select your school.');
  let answers={};
  db.questions.forEach(x=>{answers[x.id]=x.type==='mcq'?(document.querySelector(`input[name="q${x.id}"]:checked`)?.value??''):document.getElementById('q'+x.id).value});
  let auto=0,max=0;
  db.questions.forEach(x=>{max+=+x.marks;if(x.type==='mcq'&&x.answer!==null&&x.answer!==''&&String(answers[x.id])===String(x.answer))auto+=+x.marks});
- const sub={id:Date.now(),name,answers,autoScore:auto,qualitativeScore:0,total:max,status:'Pending marking',submitted:new Date().toLocaleString()};
+ const sub={id:Date.now(),testType,secretNumber,gender,school,answers,autoScore:auto,qualitativeScore:0,total:max,status:'Pending marking',submitted:new Date().toLocaleString()};
  db.submissions.push(sub);save();alert('Assessment submitted successfully. Your objective score has been recorded.');renderStudentResults(sub.id);
 }
 function renderStudentResults(id=null){
  const el=document.getElementById('student-results');let s=id?db.submissions.find(x=>x.id===id):db.submissions[db.submissions.length-1];
  if(!s){el.innerHTML='<h2>My Result</h2><p>No submission found on this device.</p>';return}
  const max=s.total, earned=s.autoScore+s.qualitativeScore;
- el.innerHTML=`<h2>Result</h2><p><b>${esc(s.name)}</b></p><div class="score">${earned} / ${max}</div><p>Status: <span class="badge">${s.status}</span></p><p class="small">Objective score: ${s.autoScore}. Written answers awaiting teacher marking: ${s.qualitativeScore}. Objective questions whose answer key has not yet been set are not automatically scored.</p>`;
+ el.innerHTML=`<h2>Result</h2><p><b>${esc(s.testType)} | Secret Number: ${esc(s.secretNumber)}</b></p><p>Gender: ${esc(s.gender)} &nbsp; | &nbsp; School: ${esc(s.school)}</p><div class="score">${earned} / ${max}</div><p>Status: <span class="badge">${s.status}</span></p><p class="small">Objective score: ${s.autoScore}. Written answers awaiting teacher marking: ${s.qualitativeScore}. Objective questions whose answer key has not yet been set are not automatically scored.</p>`;
 }
 function renderTeacher(){
  renderDashboard();renderQuestions();renderMark();
@@ -126,7 +151,7 @@ function renderDashboard(){
 }
 function scoreTable(){
  if(!db.submissions.length)return '<p>No students have submitted yet.</p>';
- return `<table><tr><th>Student</th><th>Objective</th><th>Written</th><th>Total</th><th>Status</th></tr>${db.submissions.map(s=>`<tr><td>${esc(s.name)}</td><td>${s.autoScore}</td><td>${s.qualitativeScore}</td><td><b>${s.autoScore+s.qualitativeScore}/${s.total}</b></td><td>${s.status}</td></tr>`).join('')}</table>`;
+ return `<table><tr><th>Test Type</th><th>Secret Number</th><th>Gender</th><th>School</th><th>Objective</th><th>Written</th><th>Total</th><th>Status</th></tr>${db.submissions.map(s=>`<tr><td>${esc(s.testType)}</td><td>${esc(s.secretNumber)}</td><td>${esc(s.gender)}</td><td>${esc(s.school)}</td><td>${s.autoScore}</td><td>${s.qualitativeScore}</td><td><b>${s.autoScore+s.qualitativeScore}/${s.total}</b></td><td>${s.status}</td></tr>`).join('')}</table>`;
 }
 function saveAssessment(){db.assessment.title=document.getElementById('assTitle').value||'Assessment';save();renderTeacher();alert('Assessment title saved.')}
 function renderQuestions(){
@@ -156,12 +181,12 @@ function deleteQuestion(id){if(confirm('Delete this question?')){db.questions=db
 function renderMark(){
  const el=document.getElementById('teacher-mark');
  if(!db.submissions.length){el.innerHTML='<h2>Mark Qualitative Answers</h2><p>No submissions yet.</p>';return}
- el.innerHTML=`<h2>Mark Student Answers</h2><label>Select student</label><select id="studentSelect" onchange="showSubmission()">${db.submissions.map(s=>`<option value="${s.id}">${esc(s.name)} — ${s.status}</option>`).join('')}</select><div id="submissionArea"></div>`;
+ el.innerHTML=`<h2>Mark Student Answers</h2><label>Select student</label><select id="studentSelect" onchange="showSubmission()">${db.submissions.map(s=>`<option value="${s.id}">${esc(s.testType)} — ${esc(s.secretNumber)} — ${esc(s.school)} — ${s.status}</option>`).join('')}</select><div id="submissionArea"></div>`;
  showSubmission();
 }
 function showSubmission(){
  const s=db.submissions.find(x=>x.id==document.getElementById('studentSelect').value);if(!s)return;
- let html=`<div class="card"><h3>${esc(s.name)}</h3><p>Automatic objective score: <b>${s.autoScore}</b></p>`;
+ let html=`<div class="card"><h3>${esc(s.testType)} — Secret Number: ${esc(s.secretNumber)}</h3><p>Gender: ${esc(s.gender)} | School: ${esc(s.school)}</p><p>Automatic objective score: <b>${s.autoScore}</b></p>`;
  db.questions.filter(q=>q.type==='short').forEach(q=>{html+=`<div class="question"><b>${esc(q.text)}</b><p><em>${esc(s.answers[q.id]||'(No answer)')}</em></p><label>Score (out of ${q.marks})</label><input type="number" min="0" max="${q.marks}" value="${s.manual?.[q.id]??0}" id="mark_${q.id}"></div>`});
  html+=`<button onclick="saveMarks(${s.id})">Save Marks</button></div>`;document.getElementById('submissionArea').innerHTML=html;
 }
