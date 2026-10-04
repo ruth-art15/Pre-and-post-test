@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClassMark - Student Assessment App</title>
+<style>
+:root{--primary:#2563eb;--dark:#0f172a;--muted:#64748b;--bg:#f8fafc;--card:#fff;--border:#e2e8f0;--green:#16a34a;--red:#dc2626}
+*{box-sizing:border-box} body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--dark)}
+header{background:var(--dark);color:#fff;padding:16px 24px;display:flex;justify-content:space-between;align-items:center}
+header h1{margin:0;font-size:21px}.container{max-width:1100px;margin:28px auto;padding:0 18px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;margin-bottom:18px;box-shadow:0 2px 8px #00000008}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}
+button{border:0;border-radius:8px;padding:11px 16px;cursor:pointer;font-weight:600;background:var(--primary);color:white}
+button.secondary{background:#e2e8f0;color:var(--dark)}button.danger{background:var(--red)}
+input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:8px;margin:6px 0 14px;font:inherit}
+textarea{min-height:110px;resize:vertical}label{font-weight:600;font-size:14px}
+.hidden{display:none}.tabs{display:flex;gap:8px;margin-bottom:18px;flex-wrap:wrap}.tabs button{background:#e2e8f0;color:#0f172a}.tabs button.active{background:var(--primary);color:#fff}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#dbeafe;color:#1d4ed8;font-size:12px}
+.question{border:1px solid var(--border);border-radius:10px;padding:16px;margin:12px 0}.option{margin:8px 0;padding:9px;background:#f8fafc;border-radius:7px}
+table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;border-bottom:1px solid var(--border);vertical-align:top}
+.score{font-size:34px;font-weight:800;color:var(--primary)}.small{color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<header><h1>ClassMark</h1><span id="roleLabel">Assessment Platform</span></header>
+<div class="container">
+
+<div id="home" class="card">
+<h2>Welcome to ClassMark</h2>
+<p>Create assessments, let students answer objective and qualitative questions, and mark each student's work individually.</p>
+<div class="grid">
+<div class="card"><h3>👨‍🎓 Student</h3><p>Enter your name, answer questions and submit your assessment.</p><button onclick="show('student')">Student Portal</button></div>
+<div class="card"><h3>👩‍🏫 Teacher</h3><p>Create questions, mark written answers and review scores.</p><button onclick="show('teacher')">Teacher Portal</button></div>
+</div>
+</div>
+
+<div id="student" class="hidden">
+<div class="tabs"><button class="active" onclick="showTab('student','take')">Take Assessment</button><button onclick="showTab('student','results')">My Result</button><button class="secondary" onclick="show('home')">Home</button></div>
+<div id="student-take" class="card"></div>
+<div id="student-results" class="card hidden"></div>
+</div>
+
+<div id="teacher" class="hidden">
+<div class="tabs"><button class="active" onclick="showTab('teacher','dashboard')">Dashboard</button><button onclick="showTab('teacher','questions')">Questions</button><button onclick="showTab('teacher','mark')">Mark Answers</button><button class="secondary" onclick="show('home')">Home</button></div>
+<div id="teacher-dashboard" class="card"></div>
+<div id="teacher-questions" class="card hidden"></div>
+<div id="teacher-mark" class="card hidden"></div>
+</div>
+</div>
+
+<script>
+const KEY='classmark_v1';
+let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
+ assessment:{title:'Sample Assessment',duration:'Not timed'},
+ questions:[
+  {id:1,type:'mcq',text:'What is the capital city of Uganda?',options:['Kampala','Gulu','Mbale','Jinja'],answer:0,marks:1},
+  {id:2,type:'mcq',text:'Which planet is known as the Red Planet?',options:['Earth','Mars','Jupiter','Venus'],answer:1,marks:1},
+  {id:3,type:'short',text:'In your own words, explain why education is important in a community.',answer:'',marks:5}
+ ],
+ submissions:[]
+};
+function save(){localStorage.setItem(KEY,JSON.stringify(db))}
+function show(id){
+ ['home','student','teacher'].forEach(x=>document.getElementById(x).classList.add('hidden'));
+ document.getElementById(id).classList.remove('hidden');
+ if(id==='student'){renderStudent();document.getElementById('roleLabel').textContent='Student Portal'}
+ if(id==='teacher'){renderTeacher();document.getElementById('roleLabel').textContent='Teacher Portal'}
+}
+function showTab(role,tab){
+ document.querySelectorAll(`#${role} .tabs button`).forEach(b=>b.classList.remove('active'));
+ event.target.classList.add('active');
+ ['dashboard','questions','mark','take','results'].forEach(x=>{let e=document.getElementById(`${role}-${x}`);if(e)e.classList.add('hidden')});
+ document.getElementById(`${role}-${tab}`).classList.remove('hidden');
+ if(role==='teacher')renderTeacher();
+ if(role==='student')renderStudent();
+}
+function renderStudent(){
+ const el=document.getElementById('student-take');
+ el.innerHTML=`<h2>${esc(db.assessment.title)}</h2><p class="small">Answer all questions. Objective questions are marked automatically. Written answers are marked by the teacher.</p>
+ <label>Student Name</label><input id="studentName" placeholder="Enter your full name">
+ <div id="studentQuestions"></div><button onclick="submitAssessment()">Submit Assessment</button>`;
+ const q=document.getElementById('studentQuestions');
+ db.questions.forEach((x,i)=>{
+  let html=`<div class="question"><b>${i+1}. ${esc(x.text)}</b><div class="small">Type: ${x.type==='mcq'?'Objective':'Qualitative'} | Marks: ${x.marks}</div>`;
+  if(x.type==='mcq') x.options.forEach((o,j)=>html+=`<div class="option"><label><input type="radio" name="q${x.id}" value="${j}"> ${esc(o)}</label></div>`);
+  else html+=`<textarea id="q${x.id}" placeholder="Type your answer here..."></textarea>`;
+  html+='</div>';q.innerHTML+=html;
+ });
+}
+function submitAssessment(){
+ const name=document.getElementById('studentName').value.trim();
+ if(!name)return alert('Please enter the student name.');
+ let answers={};
+ db.questions.forEach(x=>{answers[x.id]=x.type==='mcq'?(document.querySelector(`input[name="q${x.id}"]:checked`)?.value??''):document.getElementById('q'+x.id).value});
+ let auto=0,max=0;
+ db.questions.forEach(x=>{max+=+x.marks;if(x.type==='mcq'&&String(answers[x.id])===String(x.answer))auto+=+x.marks});
+ const sub={id:Date.now(),name,answers,autoScore:auto,qualitativeScore:0,total:max,status:'Pending marking',submitted:new Date().toLocaleString()};
+ db.submissions.push(sub);save();alert('Assessment submitted successfully. Your objective score has been recorded.');renderStudentResults(sub.id);
+}
+function renderStudentResults(id=null){
+ const el=document.getElementById('student-results');let s=id?db.submissions.find(x=>x.id===id):db.submissions[db.submissions.length-1];
+ if(!s){el.innerHTML='<h2>My Result</h2><p>No submission found on this device.</p>';return}
+ const max=s.total, earned=s.autoScore+s.qualitativeScore;
+ el.innerHTML=`<h2>Result</h2><p><b>${esc(s.name)}</b></p><div class="score">${earned} / ${max}</div><p>Status: <span class="badge">${s.status}</span></p><p class="small">Objective score: ${s.autoScore}. Written answers awaiting teacher marking: ${s.qualitativeScore}.</p>`;
+}
+function renderTeacher(){
+ renderDashboard();renderQuestions();renderMark();
+}
+function renderDashboard(){
+ const el=document.getElementById('teacher-dashboard');
+ const total=db.questions.reduce((a,q)=>a+ +q.marks,0);
+ el.innerHTML=`<h2>Teacher Dashboard</h2><div class="grid">
+ <div class="card"><h3>Assessment</h3><input id="assTitle" value="${esc(db.assessment.title)}"><button onclick="saveAssessment()">Save Title</button></div>
+ <div class="card"><h3>Questions</h3><div class="score">${db.questions.length}</div></div>
+ <div class="card"><h3>Total Marks</h3><div class="score">${total}</div></div>
+ <div class="card"><h3>Submissions</h3><div class="score">${db.submissions.length}</div></div></div>
+ <h3>Student Scores</h3>${scoreTable()}`;
+}
+function scoreTable(){
+ if(!db.submissions.length)return '<p>No students have submitted yet.</p>';
+ return `<table><tr><th>Student</th><th>Objective</th><th>Written</th><th>Total</th><th>Status</th></tr>${db.submissions.map(s=>`<tr><td>${esc(s.name)}</td><td>${s.autoScore}</td><td>${s.qualitativeScore}</td><td><b>${s.autoScore+s.qualitativeScore}/${s.total}</b></td><td>${s.status}</td></tr>`).join('')}</table>`;
+}
+function saveAssessment(){db.assessment.title=document.getElementById('assTitle').value||'Assessment';save();renderTeacher();alert('Assessment title saved.')}
+function renderQuestions(){
+ const el=document.getElementById('teacher-questions');
+ el.innerHTML=`<h2>Question Bank</h2><div class="card"><h3>Add Question</h3>
+ <label>Question type</label><select id="qType" onchange="toggleOptions()"><option value="mcq">Objective / Multiple Choice</option><option value="short">Qualitative / Written</option></select>
+ <label>Question</label><textarea id="qText" placeholder="Enter question"></textarea><label>Marks</label><input id="qMarks" type="number" min="1" value="1">
+ <div id="mcqFields"><label>Options (one per line)</label><textarea id="qOptions">Option A\nOption B\nOption C\nOption D</textarea><label>Correct option number</label><input id="qAnswer" type="number" min="1" value="1"></div>
+ <button onclick="addQuestion()">Add Question</button></div>
+ ${db.questions.map((q,i)=>`<div class="question"><b>${i+1}. ${esc(q.text)}</b><span class="badge">${q.type==='mcq'?'Objective':'Qualitative'}</span> <span class="small">${q.marks} marks</span>${q.type==='mcq'?'<p>'+q.options.map((o,j)=>(j===+q.answer?'<b>✓ ':'')+esc(o)).join(' | ')+'</p>':''}<button class="danger" onclick="deleteQuestion(${q.id})">Delete</button></div>`).join('')}`;
+}
+function toggleOptions(){document.getElementById('mcqFields').classList.toggle('hidden',document.getElementById('qType').value!=='mcq')}
+function addQuestion(){
+ const type=document.getElementById('qType').value,text=document.getElementById('qText').value.trim(),marks=+document.getElementById('qMarks').value||1;
+ if(!text)return alert('Enter a question.');
+ let q={id:Date.now(),type,text,marks};
+ if(type==='mcq'){q.options=document.getElementById('qOptions').value.split('\n').map(x=>x.trim()).filter(Boolean);q.answer=(+document.getElementById('qAnswer').value||1)-1;if(q.options.length<2||q.answer<0||q.answer>=q.options.length)return alert('Check options and correct option number.')}
+ else q.answer='';
+ db.questions.push(q);save();renderQuestions();renderDashboard();alert('Question added.');
+}
+function deleteQuestion(id){if(confirm('Delete this question?')){db.questions=db.questions.filter(q=>q.id!==id);save();renderTeacher()}}
+function renderMark(){
+ const el=document.getElementById('teacher-mark');
+ if(!db.submissions.length){el.innerHTML='<h2>Mark Qualitative Answers</h2><p>No submissions yet.</p>';return}
+ el.innerHTML=`<h2>Mark Student Answers</h2><label>Select student</label><select id="studentSelect" onchange="showSubmission()">${db.submissions.map(s=>`<option value="${s.id}">${esc(s.name)} — ${s.status}</option>`).join('')}</select><div id="submissionArea"></div>`;
+ showSubmission();
+}
+function showSubmission(){
+ const s=db.submissions.find(x=>x.id==document.getElementById('studentSelect').value);if(!s)return;
+ let html=`<div class="card"><h3>${esc(s.name)}</h3><p>Automatic objective score: <b>${s.autoScore}</b></p>`;
+ db.questions.filter(q=>q.type==='short').forEach(q=>{html+=`<div class="question"><b>${esc(q.text)}</b><p><em>${esc(s.answers[q.id]||'(No answer)')}</em></p><label>Score (out of ${q.marks})</label><input type="number" min="0" max="${q.marks}" value="${s.manual?.[q.id]??0}" id="mark_${q.id}"></div>`});
+ html+=`<button onclick="saveMarks(${s.id})">Save Marks</button></div>`;document.getElementById('submissionArea').innerHTML=html;
+}
+function saveMarks(id){
+ const s=db.submissions.find(x=>x.id===id);s.manual=s.manual||{};let qual=0;
+ db.questions.filter(q=>q.type==='short').forEach(q=>{let v=+document.getElementById('mark_'+q.id).value||0;v=Math.max(0,Math.min(+q.marks,v));s.manual[q.id]=v;qual+=v});
+ s.qualitativeScore=qual;s.status='Marked';save();renderMark();renderDashboard();alert('Marks saved.');
+}
+function esc(v){return String(v??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]))}
+show('home');
+</script>
+</body>
+</html>
