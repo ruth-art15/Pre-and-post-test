@@ -52,11 +52,18 @@ table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:11px;bor
 <script>
 const KEY='classmark_v1';
 let db=JSON.parse(localStorage.getItem(KEY)||'null')||{
- assessment:{title:'Sample Assessment',duration:'Not timed'},
+ assessment:{title:'PRE-TEST – Competence Based Curriculum / School-Based Assessment',duration:'Not timed'},
  questions:[
-  {id:1,type:'mcq',text:'What is the capital city of Uganda?',options:['Kampala','Gulu','Mbale','Jinja'],answer:0,marks:1},
-  {id:2,type:'mcq',text:'Which planet is known as the Red Planet?',options:['Earth','Mars','Jupiter','Venus'],answer:1,marks:1},
-  {id:3,type:'short',text:'In your own words, explain why education is important in a community.',answer:'',marks:5}
+  {id:1,type:'mcq',text:'The Competence Based Curriculum tests the learner’s level of cognition through the following.',options:['Discovery-analysis-explanatory-remember.','Understanding-discovery-application-evaluation','Discovery-analysis-explanatory-application','Discovery-analysis-evaluation-application'],answer:null,marks:1},
+  {id:2,type:'mcq',text:'During a project work, teacher’s role is.',options:['Make observation, hold conversation, and end a lesson.','Plan a lesson and keep lesson.','End a lesson, keep record and hold conversations.','Make observations, hold conversations and receive a product'],answer:null,marks:1},
+  {id:3,type:'mcq',text:'The key features of a syllabus document include the following',options:['Preliminary and detailed syllabus','Detailed syllabus and table of contents','Preliminary and detailed information','Teacher’s guide and learner’s book'],answer:null,marks:1},
+  {id:4,type:'mcq',text:'The detailed syllabus has the following features except',options:['Theme, topic, no of periods, competency','Theme, topic, competency, learning outcome','Theme, suggested learning outcome, generic skills','Topic, suggested assessment strategies, competency'],answer:null,marks:1},
+  {id:5,type:'mcq',text:'The following are the components of Activity of integration except',options:['Context-instruction-competency','Problem-task-support materials','Context-task-support material','Support material- task-scenario'],answer:null,marks:1},
+  {id:6,type:'mcq',text:'A student who scores 2.1 in a subject is described as',options:['Basic','Outstanding','Moderate','Excellent'],answer:null,marks:1},
+  {id:7,type:'short',text:'Mention any three features of an Evaluation grid.\\n\\na)\\nb)\\nc)',answer:'',marks:3},
+  {id:8,type:'short',text:'Give two importance of Teachers guide to a teacher.\\n\\na)\\nb)',answer:'',marks:2},
+  {id:9,type:'short',text:'State any three types of school-based assessment implemented by you.\\n\\na)\\nb)\\nc)',answer:'',marks:3},
+  {id:10,type:'short',text:'Projects conducted in schools promotes.\\n\\na)\\nb)',answer:'',marks:2}
  ],
  submissions:[]
 };
@@ -94,7 +101,7 @@ function submitAssessment(){
  let answers={};
  db.questions.forEach(x=>{answers[x.id]=x.type==='mcq'?(document.querySelector(`input[name="q${x.id}"]:checked`)?.value??''):document.getElementById('q'+x.id).value});
  let auto=0,max=0;
- db.questions.forEach(x=>{max+=+x.marks;if(x.type==='mcq'&&String(answers[x.id])===String(x.answer))auto+=+x.marks});
+ db.questions.forEach(x=>{max+=+x.marks;if(x.type==='mcq'&&x.answer!==null&&x.answer!==''&&String(answers[x.id])===String(x.answer))auto+=+x.marks});
  const sub={id:Date.now(),name,answers,autoScore:auto,qualitativeScore:0,total:max,status:'Pending marking',submitted:new Date().toLocaleString()};
  db.submissions.push(sub);save();alert('Assessment submitted successfully. Your objective score has been recorded.');renderStudentResults(sub.id);
 }
@@ -102,7 +109,7 @@ function renderStudentResults(id=null){
  const el=document.getElementById('student-results');let s=id?db.submissions.find(x=>x.id===id):db.submissions[db.submissions.length-1];
  if(!s){el.innerHTML='<h2>My Result</h2><p>No submission found on this device.</p>';return}
  const max=s.total, earned=s.autoScore+s.qualitativeScore;
- el.innerHTML=`<h2>Result</h2><p><b>${esc(s.name)}</b></p><div class="score">${earned} / ${max}</div><p>Status: <span class="badge">${s.status}</span></p><p class="small">Objective score: ${s.autoScore}. Written answers awaiting teacher marking: ${s.qualitativeScore}.</p>`;
+ el.innerHTML=`<h2>Result</h2><p><b>${esc(s.name)}</b></p><div class="score">${earned} / ${max}</div><p>Status: <span class="badge">${s.status}</span></p><p class="small">Objective score: ${s.autoScore}. Written answers awaiting teacher marking: ${s.qualitativeScore}. Objective questions whose answer key has not yet been set are not automatically scored.</p>`;
 }
 function renderTeacher(){
  renderDashboard();renderQuestions();renderMark();
@@ -124,12 +131,15 @@ function scoreTable(){
 function saveAssessment(){db.assessment.title=document.getElementById('assTitle').value||'Assessment';save();renderTeacher();alert('Assessment title saved.')}
 function renderQuestions(){
  const el=document.getElementById('teacher-questions');
- el.innerHTML=`<h2>Question Bank</h2><div class="card"><h3>Add Question</h3>
+ el.innerHTML=`<h2>Question Bank</h2><p class="small">The questions below were imported from the uploaded PRE-TEST. The source document does not provide an answer key or marks, so objective answer keys should be set by the teacher before automatic marking. The displayed marks can also be adjusted.</p><div class="card"><h3>Add Question</h3>
  <label>Question type</label><select id="qType" onchange="toggleOptions()"><option value="mcq">Objective / Multiple Choice</option><option value="short">Qualitative / Written</option></select>
  <label>Question</label><textarea id="qText" placeholder="Enter question"></textarea><label>Marks</label><input id="qMarks" type="number" min="1" value="1">
  <div id="mcqFields"><label>Options (one per line)</label><textarea id="qOptions">Option A\nOption B\nOption C\nOption D</textarea><label>Correct option number</label><input id="qAnswer" type="number" min="1" value="1"></div>
  <button onclick="addQuestion()">Add Question</button></div>
- ${db.questions.map((q,i)=>`<div class="question"><b>${i+1}. ${esc(q.text)}</b><span class="badge">${q.type==='mcq'?'Objective':'Qualitative'}</span> <span class="small">${q.marks} marks</span>${q.type==='mcq'?'<p>'+q.options.map((o,j)=>(j===+q.answer?'<b>✓ ':'')+esc(o)).join(' | ')+'</p>':''}<button class="danger" onclick="deleteQuestion(${q.id})">Delete</button></div>`).join('')}`;
+ ${db.questions.map((q,i)=>`<div class="question"><b>${i+1}. ${esc(q.text).replace(/\n/g,'<br>')}</b><span class="badge">${q.type==='mcq'?'Objective':'Qualitative'}</span>
+<label>Marks</label><input type="number" min="1" value="${q.marks}" style="max-width:120px" onchange="updateQuestionMarks(${q.id},this.value)">
+${q.type==='mcq'?`<label>Correct answer</label><select onchange="updateQuestionAnswer(${q.id},this.value)"><option value="">-- Select answer key --</option>${q.options.map((o,j)=>`<option value="${j}" ${String(q.answer)===String(j)?'selected':''}>${String.fromCharCode(65+j)}. ${esc(o)}</option>`).join('')}</select><div class="small">Current key: ${q.answer===null?'Not set':String.fromCharCode(65+Number(q.answer))}</div>`:''}
+<button class="danger" onclick="deleteQuestion(${q.id})">Delete</button></div>`).join('')}`;
 }
 function toggleOptions(){document.getElementById('mcqFields').classList.toggle('hidden',document.getElementById('qType').value!=='mcq')}
 function addQuestion(){
@@ -140,6 +150,8 @@ function addQuestion(){
  else q.answer='';
  db.questions.push(q);save();renderQuestions();renderDashboard();alert('Question added.');
 }
+function updateQuestionMarks(id,v){const q=db.questions.find(q=>q.id===id);if(q){q.marks=Math.max(1,+v||1);save();renderDashboard();}}
+function updateQuestionAnswer(id,v){const q=db.questions.find(q=>q.id===id);if(q){q.answer=v===''?null:+v;save();}}
 function deleteQuestion(id){if(confirm('Delete this question?')){db.questions=db.questions.filter(q=>q.id!==id);save();renderTeacher()}}
 function renderMark(){
  const el=document.getElementById('teacher-mark');
